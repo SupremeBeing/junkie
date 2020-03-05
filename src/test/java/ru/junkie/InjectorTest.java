@@ -140,7 +140,7 @@ public class InjectorTest {
         injector.bind(List.class, ArrayList.class);
         injector.bind(Collection.class, LinkedList.class);
         Collection<?> retrieved = injector.getInstance(Collection.class);
-        Assert.assertTrue(retrieved instanceof LinkedList);
+        Assert.assertTrue(retrieved instanceof List);
     }
 
     @Test
