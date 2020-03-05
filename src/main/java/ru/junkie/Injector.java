@@ -25,6 +25,8 @@
  */
 package ru.junkie;
 
+import ru.reflexio.Primitive;
+
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.function.Supplier;
