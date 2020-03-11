@@ -215,4 +215,5 @@ public class InjectorTest {
         int[] ar = injector.instantiate(int[].class);
         Assert.assertNotNull(ar);
     }
+
 }

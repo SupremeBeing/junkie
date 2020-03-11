@@ -48,4 +48,5 @@ public interface IInjector {
     <T> T instantiate(Class<T> type);
 
     Object invoke(Object data, Method method);
+
 }

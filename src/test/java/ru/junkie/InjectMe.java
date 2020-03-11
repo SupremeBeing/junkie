@@ -55,4 +55,5 @@ public class InjectMe {
         this.message = message;
         this.collection = collection;
     }
+
 }
