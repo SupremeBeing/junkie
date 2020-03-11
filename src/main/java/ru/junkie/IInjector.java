@@ -29,8 +29,6 @@ import java.lang.reflect.Method;
 
 public interface IInjector {
 
-    String DEFAULT_NAME = "DEFAULT_BINDING_NAME";
-
     <T> void bind(Class<T> type, String name, T implementation);
 
     <T> void bind(Class<T> type, T implementation);

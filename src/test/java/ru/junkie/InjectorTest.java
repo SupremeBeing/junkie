@@ -51,7 +51,7 @@ public class InjectorTest {
         injector.bind(null, list);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void testNullNameBind() {
         Injector injector = new Injector();
         ArrayList<Object> list = new ArrayList<>();

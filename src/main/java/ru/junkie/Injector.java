@@ -25,7 +25,13 @@
  */
 package ru.junkie;
 
+import ru.reflexio.IConstructorReflection;
+import ru.reflexio.IExecutableReflection;
+import ru.reflexio.IInstanceMethodReflection;
+import ru.reflexio.IParameterReflection;
+import ru.reflexio.ITypeReflection;
 import ru.reflexio.Primitive;
+import ru.reflexio.TypeReflection;
 
 import java.lang.reflect.*;
 import java.util.*;
@@ -42,7 +48,7 @@ public class Injector implements IInjector {
 
 	@Override
 	public <T> void bind(Class<T> type, String name, T implementation) {
-		if (type == null || implementation == null || name == null) {
+		if (type == null || implementation == null) {
 			throw new IllegalArgumentException();
 		}
 		getNamedBindings(type).put(name, () -> implementation);
@@ -50,12 +56,12 @@ public class Injector implements IInjector {
 
 	@Override
 	public <T> void bind(Class<T> type, T implementation) {
-		bind(type, DEFAULT_NAME, implementation);
+		bind(type, null, implementation);
 	}
 
 	@Override
 	public <T> void bind(Class<T> type, String name, Class<? extends T> implClass) {
-		if (type == null || implClass == null || name == null) {
+		if (type == null || implClass == null) {
 			throw new IllegalArgumentException();
 		}
 		// TODO: consider singleton implementation
@@ -68,7 +74,7 @@ public class Injector implements IInjector {
 
 	@Override
 	public <T> void bind(Class<T> type, Class<? extends T> implClass) {
-		bind(type, DEFAULT_NAME, implClass);
+		bind(type, null, implClass);
 	}
 
 	@Override
@@ -84,12 +90,11 @@ public class Injector implements IInjector {
 	@SuppressWarnings("unchecked")
 	@Override
 	public <T> T getInstance(Class<T> type, String name) {
-		if (type == null || name == null) {
+		if (type == null) {
 			throw new IllegalArgumentException();
 		}
-		Set<Class<?>> boundTypes = new HashSet<>(bindings.keySet());
-		for (Class<?> boundType : boundTypes) {
-			if (type.isAssignableFrom(boundType) || Primitive.exists(type, boundType) || Primitive.exists(boundType, type)) {
+		for (Class<?> boundType : bindings.keySet()) {
+			if (type.isAssignableFrom(boundType) || Primitive.canAssign(type, boundType)) {
 				Map<String, Supplier<?>> namedBindings = bindings.get(boundType);
 				if (namedBindings != null) {
 					Supplier<?> supplier = namedBindings.get(name);
@@ -104,85 +109,40 @@ public class Injector implements IInjector {
 
 	@Override
 	public <T> T getInstance(Class<T> type) {
-		return getInstance(type, DEFAULT_NAME);
+		return getInstance(type, null);
 	}
 
 	@Override
-	@SuppressWarnings("unchecked")
 	public <T> T instantiate(Class<T> type) {
-		if (type == null) {
-			throw new IllegalArgumentException();
-		}
+		ITypeReflection<T> tr = new TypeReflection<>(type);
+		IConstructorReflection<T> ctor = tr.findDefaultConstructor();
 		if (type.isArray()) {
-			return (T) Array.newInstance(type.getComponentType(), 0);
+			return ctor.invoke(0);
 		} else {
-			Constructor<T> ctor = findDefaultConstructor(type);
-			return ctor == null ? null : invoke(ctor);
+			return ctor == null ? null : ctor.invoke(createArguments(ctor));
 		}
 	}
 
-	@SuppressWarnings("unchecked")
-	private <T> Constructor<T> findDefaultConstructor(Class<T> type) {
-		Constructor<?> least = null;
-		for (Constructor<?> ctor : type.getDeclaredConstructors()) {
-			if (ctor.getParameterCount() == 0) {
-				return (Constructor<T>) ctor;
-			}
-			if (least == null || ctor.getParameterCount() < least.getParameterCount()) {
-				least = ctor;
-			}
-		}
-		return (Constructor<T>) least;
-	}
-
-	private <T> T invoke(Constructor<T> ctor) {
-		Object[] args = createArguments(ctor);
-		return forceAccess(() -> {
-			try {
-				return ctor.newInstance(args);
-			} catch (InvocationTargetException | IllegalAccessException | InstantiationException e) {
-				throw new RuntimeException(e);
-			}
-		}, ctor);
-	}
-
+	// TODO: add static invocation?
 	@Override
 	public Object invoke(Object data, Method method) {
 		if (method == null) {
 			throw new IllegalArgumentException();
 		}
-		Object[] args = createArguments(method);
-		return forceAccess(() -> {
-			try {
-				return method.invoke(data, args);
-			} catch (InvocationTargetException | IllegalAccessException e) {
-				throw new RuntimeException(e);
-			}
-		}, method);
+		ITypeReflection<?> tr = new TypeReflection<>(method.getDeclaringClass());
+		IInstanceMethodReflection m = tr.findInstanceMethod(method.getName());
+		return m.invoke(data, createArguments(m));
 	}
 
-	private Object[] createArguments(Executable executable) {
-		Parameter[] params = executable.getParameters();
-		Object[] result = new Object[params.length];
-		for (int i = 0; i < params.length; i++) {
-			Parameter param = params[i];
+	private Object[] createArguments(IExecutableReflection executable) {
+		List<IParameterReflection> params = executable.getParameters();
+		Object[] result = new Object[params.size()];
+		for (int i = 0; i < params.size(); i++) {
+			IParameterReflection param = params.get(i);
 			InjectNamed in = param.getAnnotation(InjectNamed.class);
-			result[i] = getInstance(param.getType(), in == null ? DEFAULT_NAME : in.value());
+			result[i] = getInstance(param.getType(), in == null ? null : in.value());
 		}
 		return result;
 	}
 
-	private <R> R forceAccess(Supplier<R> supplier, AccessibleObject element) {
-		boolean accessible = element.isAccessible();
-		if (!accessible) {
-			element.setAccessible(true);
-		}
-		try {
-			return supplier.get();
-		} finally {
-			if (!accessible) {
-				element.setAccessible(false);
-			}
-		}
-	}
 }
