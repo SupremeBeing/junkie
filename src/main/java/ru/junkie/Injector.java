@@ -29,6 +29,7 @@ import ru.reflexio.IConstructorReflection;
 import ru.reflexio.IExecutableReflection;
 import ru.reflexio.IInstanceMethodReflection;
 import ru.reflexio.IParameterReflection;
+import ru.reflexio.IStaticMethodReflection;
 import ru.reflexio.ITypeReflection;
 import ru.reflexio.Primitive;
 import ru.reflexio.TypeReflection;
@@ -37,7 +38,6 @@ import java.lang.reflect.*;
 import java.util.*;
 import java.util.function.Supplier;
 
-// TODO: consider making thread-safe
 public class Injector implements IInjector {
 
 	private final Map<Class<?>, Map<String, Supplier<?>>> bindings = new HashMap<>();
@@ -51,7 +51,7 @@ public class Injector implements IInjector {
 		if (type == null || implementation == null) {
 			throw new IllegalArgumentException();
 		}
-		getNamedBindings(type).put(name, () -> implementation);
+		bindings.computeIfAbsent(type, k -> new HashMap<>()).put(name, () -> implementation);
 	}
 
 	@Override
@@ -64,12 +64,7 @@ public class Injector implements IInjector {
 		if (type == null || implClass == null) {
 			throw new IllegalArgumentException();
 		}
-		// TODO: consider singleton implementation
-		getNamedBindings(type).put(name, () -> instantiate(implClass));
-	}
-
-	private Map<String, Supplier<?>> getNamedBindings(Class<?> type) {
-		return bindings.computeIfAbsent(type, k -> new HashMap<>());
+		bindings.computeIfAbsent(type, k -> new HashMap<>()).put(name, () -> instantiate(implClass));
 	}
 
 	@Override
@@ -116,22 +111,23 @@ public class Injector implements IInjector {
 	public <T> T instantiate(Class<T> type) {
 		ITypeReflection<T> tr = new TypeReflection<>(type);
 		IConstructorReflection<T> ctor = tr.findDefaultConstructor();
-		if (type.isArray()) {
-			return ctor.invoke(0);
-		} else {
-			return ctor == null ? null : ctor.invoke(createArguments(ctor));
-		}
+		return ctor == null ? null : ctor.invoke(createArguments(ctor));
 	}
 
-	// TODO: add static invocation?
 	@Override
-	public Object invoke(Object data, Method method) {
+	public Object invoke(Object data, IInstanceMethodReflection method) {
+		if (method == null || data == null) {
+			throw new IllegalArgumentException();
+		}
+		return method.invoke(data, createArguments(method));
+	}
+
+	@Override
+	public Object invoke(IStaticMethodReflection method) {
 		if (method == null) {
 			throw new IllegalArgumentException();
 		}
-		ITypeReflection<?> tr = new TypeReflection<>(method.getDeclaringClass());
-		IInstanceMethodReflection m = tr.findInstanceMethod(method.getName());
-		return m.invoke(data, createArguments(m));
+		return method.invoke(createArguments(method));
 	}
 
 	private Object[] createArguments(IExecutableReflection executable) {

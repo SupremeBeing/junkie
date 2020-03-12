@@ -27,6 +27,7 @@ package ru.junkie;
 
 import org.junit.Assert;
 import org.junit.Test;
+import ru.reflexio.TypeReflection;
 
 import java.util.*;
 
@@ -190,14 +191,16 @@ public class InjectorTest {
     }
 
     @Test
-    public void testInvoke() throws NoSuchMethodException {
+    public void testInvoke() {
         Injector injector = new Injector();
         injector.bind(String.class, "message");
         List<String> list = new ArrayList<>();
         list.add("string");
         injector.bind(List.class, list);
+
         InjectMe injectMe = new InjectMe(10, new ArrayList<>());
-        injector.invoke(injectMe, InjectMe.class.getDeclaredMethod("setValues", String.class, Collection.class));
+        TypeReflection<InjectMe> tr = new TypeReflection<>(InjectMe.class);
+        injector.invoke(injectMe, tr.findInstanceMethod("setValues"));
         Assert.assertEquals("message", injectMe.getMessage());
         Assert.assertEquals(list, injectMe.getCollection());
     }

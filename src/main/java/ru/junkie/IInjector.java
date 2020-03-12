@@ -25,6 +25,9 @@
  */
 package ru.junkie;
 
+import ru.reflexio.IInstanceMethodReflection;
+import ru.reflexio.IStaticMethodReflection;
+
 import java.lang.reflect.Method;
 
 public interface IInjector {
@@ -47,6 +50,8 @@ public interface IInjector {
 
     <T> T instantiate(Class<T> type);
 
-    Object invoke(Object data, Method method);
+    Object invoke(Object data, IInstanceMethodReflection method);
+
+    Object invoke(IStaticMethodReflection method);
 
 }
